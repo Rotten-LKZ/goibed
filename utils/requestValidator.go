@@ -9,14 +9,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func IsPOST(c *Context) bool {
-	if c.R.Method != http.MethodPost {
-		c.Error(http.StatusMethodNotAllowed, "Method not allowed")
-		return false
-	}
-	return true
-}
-
 func MakeAuthRequiredHandler(fn func(c *Context)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := &Context{W: w, R: r}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"goibed/config"
 	"goibed/database"
 	"goibed/imgpool"
 	"goibed/utils"
@@ -13,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 	"uuid"
 
@@ -20,10 +23,6 @@ import (
 )
 
 func UploadImage(c *utils.Context) {
-	if !utils.IsPOST(c) {
-		return
-	}
-
 	if err := c.R.ParseMultipartForm(32 << 20); err != nil {
 		c.Error(http.StatusBadRequest, "Parse form failed or too large file")
 		return
@@ -73,7 +72,7 @@ func UploadImage(c *utils.Context) {
 		return
 	}
 
-	ctx := context.Background()
+	ctx, _ := context.WithTimeout(context.Background(), time.Second*3)
 	err = gorm.G[database.Images](database.DB).Create(ctx, &database.Images{
 		ID:        fileUUID,
 		FileHash:  fileHash,
@@ -104,6 +103,55 @@ func UploadImage(c *utils.Context) {
 	})
 }
 
-func GetImage(w http.ResponseWriter, r *http.Request) {
+func getUUIDFromFilename(filename string) (string, bool) {
+	if len(filename) != 36+5 || !strings.HasSuffix(filename, ".avif") {
+		return "", false
+	}
+	possibleUUID := filename[0:36]
+	_, err := uuid.Parse(possibleUUID)
+	if err != nil {
+		return "", false
+	}
+	return possibleUUID, true
+}
 
+func GetImage(c *utils.Context) {
+	imageName := c.R.PathValue("filename")
+	ID, isValid := getUUIDFromFilename(imageName)
+	if !isValid {
+		c.Error(http.StatusNotFound, "No such image")
+		return
+	}
+	ctx, _ := context.WithTimeout(context.Background(), time.Second*3)
+	image, err := gorm.G[database.Images](database.DB).Where("ID = ?", ID).First(ctx)
+	if err != nil {
+		c.Error(http.StatusNotFound, "No such image")
+		return
+	}
+	http.ServeFile(c.W, c.R, filepath.Join(config.Config.BasePath, image.ImagePath))
+}
+
+func GetImageInfo(c *utils.Context) {
+	imageName := c.R.PathValue("filename")
+	ID, isValid := getUUIDFromFilename(imageName)
+	if !isValid {
+		c.Error(http.StatusNotFound, "No such image")
+		return
+	}
+	ctx, _ := context.WithTimeout(context.Background(), time.Second*3)
+	image, err := gorm.G[database.Images](database.DB).Where("ID = ?", ID).First(ctx)
+	if err != nil {
+		c.Error(http.StatusNotFound, "No such image")
+		return
+	}
+	data, err := json.Marshal(image)
+	if err != nil {
+		c.Error(http.StatusInternalServerError, "Failed to convert image data into JSON format")
+		return
+	}
+	c.JSON(http.StatusOK, &utils.Response{
+		Code: http.StatusOK,
+		Msg:  "Successful",
+		Data: string(data),
+	})
 }

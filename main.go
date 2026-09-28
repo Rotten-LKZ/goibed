@@ -17,16 +17,18 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	logger.Init()
+	imgpool.InitPool()
 
-	http.HandleFunc("/", helloHandler)
-	http.HandleFunc("/api/login", utils.MakeHandler(handler.Login))
-	http.HandleFunc("/api/upload", utils.MakeAuthRequiredHandler(handler.UploadImage))
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /", helloHandler)
+	mux.HandleFunc("GET /i/{filename}", utils.MakeHandler(handler.GetImage))
+	mux.HandleFunc("GET /info/{filename}", utils.MakeHandler(handler.GetImageInfo))
+	mux.HandleFunc("POST /api/login", utils.MakeHandler(handler.Login))
+	mux.HandleFunc("POST /api/upload", utils.MakeAuthRequiredHandler(handler.UploadImage))
 
 	slog.Info("HTTP server starting", "addr", ":8080")
 
-	imgpool.InitPool()
-
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	if err := http.ListenAndServe(":8080", mux); err != nil {
 		slog.Error("HTTP server stopped", "error", err)
 	}
 }

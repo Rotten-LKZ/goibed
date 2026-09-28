@@ -15,10 +15,6 @@ type LoginRequest struct {
 }
 
 func Login(c *utils.Context) {
-	if !utils.IsPOST(c) {
-		return
-	}
-
 	defer c.R.Body.Close()
 	var t LoginRequest
 	err := json.NewDecoder(c.R.Body).Decode(&t)
