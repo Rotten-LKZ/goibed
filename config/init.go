@@ -14,9 +14,11 @@ type ConfigList struct {
 	JwtKey         []byte
 }
 
+// Ensure not to write to this var after Init
+// otherwise may cause data race
 var Config *ConfigList
 
-func init() {
+func Init() {
 	token := os.Getenv("GOIBED_TOKEN")
 	if token == "" {
 		slog.Warn("LOGIN TOKEN HAVEN'T BE SET, REMEMBER TO SET LOGIN TOKEN IN THE PRODUCTION ENV OR YOUR DATA MAY BE STOLEN.")

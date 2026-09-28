@@ -72,7 +72,8 @@ func UploadImage(c *utils.Context) {
 		return
 	}
 
-	ctx, _ := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
 	err = gorm.G[database.Images](database.DB).Create(ctx, &database.Images{
 		ID:        fileUUID,
 		FileHash:  fileHash,
@@ -122,7 +123,8 @@ func GetImage(c *utils.Context) {
 		c.Error(http.StatusNotFound, "No such image")
 		return
 	}
-	ctx, _ := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
 	image, err := gorm.G[database.Images](database.DB).Where("ID = ?", ID).First(ctx)
 	if err != nil {
 		c.Error(http.StatusNotFound, "No such image")
@@ -138,7 +140,8 @@ func GetImageInfo(c *utils.Context) {
 		c.Error(http.StatusNotFound, "No such image")
 		return
 	}
-	ctx, _ := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
 	image, err := gorm.G[database.Images](database.DB).Where("ID = ?", ID).First(ctx)
 	if err != nil {
 		c.Error(http.StatusNotFound, "No such image")
