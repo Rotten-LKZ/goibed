@@ -1,7 +1,6 @@
 package imgpool
 
 import (
-	"bufio"
 	"context"
 	"goibed/config"
 	"goibed/database"
@@ -10,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,40 +57,52 @@ func worker(workerID int) {
 	}
 }
 
-func runImageMagick(task *Task, arg ...string) error {
+func runImageMagick(task *Task, arg ...string) (string, error) {
 	cmd := exec.Command("magick", arg...)
-	stderrPipe, err := cmd.StderrPipe()
+
+	// This requires the program doesn't output anything else to stderr when runs normally.
+	outputBytes, err := cmd.CombinedOutput()
 	if err != nil {
-		logger.Error("failed to get stderr pipe", "err", err)
-		return err
+		logger.Error("imagemagick doesn't work normally",
+			"err", string(outputBytes),
+			"ID", task.ID,
+			"tempPath", task.TempPath,
+		)
+		return "", err
 	}
-	go func() {
-		scanner := bufio.NewScanner(stderrPipe)
-		for scanner.Scan() {
-			line := scanner.Text()
-			logger.Error("ImageMagick Error", "output", line, "src", task.TempPath)
-		}
 
-		if err := scanner.Err(); err != nil {
-			logger.Error("Reading ImageMagick Error Error", "err", err, "src", task.TempPath)
-		}
-	}()
-
-	if err := cmd.Start(); err != nil {
-		logger.Error("failed to start magick", "err", err)
-		return err
-	}
-	if err := cmd.Wait(); err != nil {
-		logger.Error("magick doesn't work normally", "err", err)
-		return err
-	}
-	return nil
+	return string(outputBytes), nil
 }
 
 func (task *Task) convert() {
 	dstFile := strings.TrimSuffix(task.TempPath, filepath.Ext(task.TempPath)) + ".avif"
 
-	if err := runImageMagick(task, task.TempPath, dstFile); err != nil {
+	if _, err := runImageMagick(task, task.TempPath, dstFile); err != nil {
+		return
+	}
+	// ./magick identify -precision 16 -format "%w %h %b" -ping wallhaven-d88d53.png
+	imageInfo, err := runImageMagick(task, "identify", "-precision", "16", "-format", "\"%w %h %b\"", "-ping", dstFile)
+	if err != nil {
+		return
+	}
+	infos := strings.Split(imageInfo, " ")
+	if len(infos) != 3 {
+		logger.Error("ImageMagick parse error", "dist", dstFile)
+		return
+	}
+	width, err := strconv.Atoi(infos[0])
+	if err != nil {
+		logger.Error("ImageMagick parse error", "dist", dstFile)
+		return
+	}
+	height, err := strconv.Atoi(infos[1])
+	if err != nil {
+		logger.Error("ImageMagick parse error", "dist", dstFile)
+		return
+	}
+	size, err := strconv.Atoi(infos[2][:len(infos[2])-1])
+	if err != nil {
+		logger.Error("ImageMagick parse error", "dist", dstFile)
 		return
 	}
 
@@ -110,6 +122,9 @@ func (task *Task) convert() {
 	}
 	rowsAffected, err := gorm.G[database.Images](database.DB).Where("ID = ?", task.ID).Updates(ctx, database.Images{
 		ImagePath: dstFileRelative,
+		Height:    uint32(height),
+		Width:     uint32(width),
+		Size:      uint64(size),
 	})
 	if rowsAffected != 1 || err != nil {
 		logger.Error("failed to update images table normally",
