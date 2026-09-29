@@ -58,7 +58,7 @@ func worker(workerID int) {
 }
 
 func runImageMagick(task *Task, arg ...string) (string, error) {
-	cmd := exec.Command("magick", arg...)
+	cmd := exec.Command(config.Config.MagickPath, arg...)
 
 	// This requires the program doesn't output anything else to stderr when runs normally.
 	outputBytes, err := cmd.CombinedOutput()

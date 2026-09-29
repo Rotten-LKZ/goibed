@@ -1,0 +1,8 @@
+{
+  "token": "REPLACE",
+  "jwt_key": "REPLACE",
+  "base_path": "/path/to/base/path",
+  "magick_path": "/path/to/ImageMagick",
+  "max_img_pool": 4,
+  "max_queue_length": 500
+}
