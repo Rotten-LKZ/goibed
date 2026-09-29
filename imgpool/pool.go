@@ -80,8 +80,7 @@ func (task *Task) convert() {
 	if _, err := runImageMagick(task, task.TempPath, dstFile); err != nil {
 		return
 	}
-	// ./magick identify -precision 16 -format "%w %h %b" -ping wallhaven-d88d53.png
-	imageInfo, err := runImageMagick(task, "identify", "-precision", "16", "-format", "\"%w %h %b\"", "-ping", dstFile)
+	imageInfo, err := runImageMagick(task, "identify", "-precision", "16", "-format", "%w %h %b", "-ping", dstFile)
 	if err != nil {
 		return
 	}

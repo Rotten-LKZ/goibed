@@ -12,7 +12,7 @@ import (
 
 var DB *gorm.DB
 
-func init() {
+func Init() {
 	if err := os.MkdirAll(filepath.Join(config.Config.BasePath, "data"), 0755); err != nil {
 		slog.Error("failed to create data folder to save datas")
 		os.Exit(1)
@@ -21,7 +21,7 @@ func init() {
 		slog.Error("failed to create uploads folder to save datas")
 		os.Exit(1)
 	}
-	db, err := gorm.Open(sqlite.Open("./data/goibed.db"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(filepath.Join(config.Config.BasePath, "data", "goibed.db")), &gorm.Config{})
 	if err != nil {
 		slog.Error("failed to connect to the database")
 		os.Exit(1)

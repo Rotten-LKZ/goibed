@@ -3,7 +3,6 @@ package utils
 import (
 	"goibed/config"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -12,21 +11,14 @@ import (
 func MakeAuthRequiredHandler(fn func(c *Context)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := &Context{W: w, R: r}
-		cookie, err := r.Cookie("JWT_TOKEN")
+		tokenString, err := r.Cookie("JWT_TOKEN")
 		if err != nil {
 			ctx.Error(http.StatusUnauthorized, "Cookie JWT_TOKEN required")
 			return
 		}
 
-		parts := strings.SplitN(cookie.Value, " ", 2)
-		if !(len(parts) == 2 && parts[0] == "Bearer") {
-			ctx.Error(http.StatusUnauthorized, "Wrong Authorization format")
-			return
-		}
-		tokenString := parts[1]
-
-		token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (any, error) {
-			return config.Config.JwtKey, nil
+		token, err := jwt.ParseWithClaims(tokenString.Value, &jwt.RegisteredClaims{}, func(token *jwt.Token) (any, error) {
+			return []byte(config.Config.JwtKey), nil
 		})
 		if err != nil || !token.Valid {
 			http.SetCookie(w, &http.Cookie{

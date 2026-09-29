@@ -18,7 +18,7 @@ type ConfigList struct {
 
 // Ensure not to write to this var after Init
 // otherwise may cause data race
-var Config *ConfigList
+var Config ConfigList
 
 func Init() {
 	configPath := flag.String("config", "./config.json", "配置文件路径")
@@ -29,7 +29,7 @@ func Init() {
 		slog.Error("Failed to read config file")
 		os.Exit(1)
 	}
-	if err := json.Unmarshal(data, Config); err != nil {
+	if err := json.Unmarshal(data, &Config); err != nil {
 		slog.Error("Failed to parse config file")
 		os.Exit(1)
 	}

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"goibed/config"
+	"goibed/database"
 	"goibed/handler"
 	"goibed/imgpool"
 	"goibed/logger"
@@ -18,6 +19,7 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	config.Init()
+	database.Init()
 	logger.Init()
 	imgpool.InitPool()
 

@@ -32,7 +32,7 @@ func Login(c *utils.Context) {
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24 * 30)),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
-	}).SignedString(config.Config.JwtKey)
+	}).SignedString([]byte(config.Config.JwtKey))
 	if err != nil {
 		c.Error(http.StatusInternalServerError, "Failed to sign JWT token")
 		return
