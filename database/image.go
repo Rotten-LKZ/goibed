@@ -1,6 +1,8 @@
 package database
 
-import "time"
+import (
+	"goibed/utils"
+)
 
 type Images struct {
 	ID       string `gorm:"type:varchar(36);not null;primaryKey" json:"ID"`
@@ -13,7 +15,7 @@ type Images struct {
 	Width     uint32  `gorm:"default:0" json:"width"`
 	Height    uint32  `gorm:"default:0" json:"height"`
 	// Byte
-	Size      uint64    `gorm:"default:0" json:"size"`
-	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	Size      uint64      `gorm:"default:0" json:"size"`
+	CreatedAt utils.XTime `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt utils.XTime `gorm:"autoUpdateTime" json:"updated_at"`
 }

@@ -24,11 +24,14 @@ func main() {
 	imgpool.InitPool()
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /", helloHandler)
+	mux.HandleFunc("GET /{$}", helloHandler)
 	mux.HandleFunc("GET /i/{filename}", utils.MakeHandler(handler.GetImage))
 	mux.HandleFunc("GET /info/{filename}", utils.MakeHandler(handler.GetImageInfo))
 	mux.HandleFunc("POST /api/login", utils.MakeHandler(handler.Login))
 	mux.HandleFunc("POST /api/upload", utils.MakeAuthRequiredHandler(handler.UploadImage))
+	mux.HandleFunc("POST /api/manage/list", utils.MakeAuthRequiredHandler(handler.GetImagesList))
+	mux.HandleFunc("POST /api/manage/update", utils.MakeAuthRequiredHandler(handler.UpdateImage))
+	mux.HandleFunc("POST /api/manage/delete", utils.MakeAuthRequiredHandler(handler.DelImage))
 
 	slog.Info("HTTP server starting", "addr", ":8080")
 
