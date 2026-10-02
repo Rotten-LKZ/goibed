@@ -16,7 +16,7 @@ encoding.
 
 ## Usage
 
-Download the binary and `config.example.json`, create your own configuration file, then run:
+Download the binary for your platform from [GitHub Releases](https://github.com/Rotten-LKZ/goibed/releases) and `config.example.json`, create your own configuration file, then run:
 
 ```bash
 ./goibed --config /path/to/your/config.json
