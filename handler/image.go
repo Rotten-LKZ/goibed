@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"goibed/config"
 	"goibed/database"
@@ -152,14 +151,9 @@ func GetImageInfo(c *utils.Context) {
 		c.Error(http.StatusNotFound, "No such image")
 		return
 	}
-	data, err := json.Marshal(image)
-	if err != nil {
-		c.Error(http.StatusInternalServerError, "Failed to convert image data into JSON format")
-		return
-	}
 	c.JSON(http.StatusOK, &utils.Response{
 		Code: http.StatusOK,
 		Msg:  "Successful",
-		Data: string(data),
+		Data: image,
 	})
 }
