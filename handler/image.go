@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"goibed/config"
 	"goibed/database"
@@ -73,27 +74,45 @@ func UploadImage(c *utils.Context) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
-	err = gorm.G[database.Images](database.DB).Create(ctx, &database.Images{
-		ID:        fileUUID,
-		FileHash:  fileHash,
-		Filename:  header.Filename,
-		ImagePath: tempPathRelative,
-	})
-	if err != nil {
-		os.Remove(tempPath)
-		slog.Error(err.Error())
-		c.Error(http.StatusInternalServerError, "Failed to write to db")
+	var image database.Images
+	image, err = gorm.G[database.Images](database.DB).Where("file_hash = ?", fileHash).First(ctx)
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		ctx, cancel = context.WithTimeout(context.Background(), time.Second*3)
+		defer cancel()
+		image = database.Images{
+			ID:        fileUUID,
+			FileHash:  fileHash,
+			Filename:  header.Filename,
+			ImagePath: tempPathRelative,
+		}
+		err = gorm.G[database.Images](database.DB).Create(ctx, &image)
+		if err != nil {
+			os.Remove(tempPath)
+			slog.Error(err.Error())
+			c.Error(http.StatusInternalServerError, "Failed to write to db")
+			return
+		}
+		if succ := imgpool.Submit(imgpool.Task{
+			ID:       fileUUID,
+			TempPath: tempPath,
+		}); !succ {
+			c.Error(http.StatusInternalServerError, "Failed to queue converting request.")
+			return
+		}
+	} else if err != nil {
+		c.Error(http.StatusInternalServerError, "Failed to convert to relative path")
 		return
-	}
-	if succ := imgpool.Submit(imgpool.Task{
-		ID:       fileUUID,
-		TempPath: tempPath,
-	}); !succ {
-		c.Error(http.StatusInternalServerError, "Failed to queue converting request.")
-		return
+	} else {
+		// exists
+		err := os.Remove(tempPath)
+		if err != nil {
+			c.Error(http.StatusInternalServerError, "Failed to remove temp img file")
+			return
+		}
 	}
 
-	resourceURL, err := utils.GetResourceURL(c.R, fmt.Sprintf("/i/%s.avif", fileUUID))
+	resourceURL, err := utils.GetResourceURL(c.R, fmt.Sprintf("/i/%s.avif", image.ID))
 	if err != nil {
 		c.Error(http.StatusInternalServerError, "Failed to get img resource url")
 		return
@@ -102,7 +121,7 @@ func UploadImage(c *utils.Context) {
 		Code: http.StatusOK,
 		Msg:  "Uploaded Successful",
 		Data: map[string]string{
-			"hash": fileHash,
+			"hash": image.FileHash,
 			"url":  resourceURL,
 		},
 	})
