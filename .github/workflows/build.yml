@@ -1,0 +1,45 @@
+name: Build
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - platform: linux-amd64
+            runner: ubuntu-latest
+            binary: goibed-linux-amd64
+            arch: amd64
+          - platform: darwin-amd64
+            runner: macos-15-intel
+            binary: goibed-darwin-amd64
+            arch: amd64
+          - platform: darwin-arm64
+            runner: macos-15
+            binary: goibed-darwin-arm64
+            arch: arm64
+          - platform: windows-amd64
+            runner: windows-latest
+            binary: goibed-windows-amd64.exe
+            arch: amd64
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Build binary
+        env:
+          CGO_ENABLED: '1'
+          GOARCH: ${{ matrix.arch }}
+        run: go build -o ${{ matrix.binary }} .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.platform }}
+          path: ${{ matrix.binary }}
+          if-no-files-found: error
