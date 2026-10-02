@@ -33,3 +33,40 @@ cp config.example.json config.json
 vim config.json # whatever editor you use
 go run .
 ```
+
+## API Reference
+
+The service listens on `:8080`. Except for the home page and image files, endpoints return JSON: `{"code": HTTP status code, "msg": "message", "data": ...}`. The `data` field is omitted when absent. Errors use the same format, typically with HTTP status 400, 401, 404, or 500.
+
+`/api/upload` and `/api/manage/*` require the `JWT_TOKEN` cookie obtained after login; a missing or invalid cookie returns 401. A successful login sets a 30-day `HttpOnly`, `Secure` cookie (use HTTPS).
+
+| Method | Path | Request | Success response (HTTP 200) |
+| --- | --- | --- | --- |
+| GET | `/` | None | Plain text `Hello` |
+| GET | `/i/{filename}` | `{filename}` is a UUID followed by `.avif` | Image file; 404 if not found |
+| GET | `/info/{filename}` | Same as above | `data` contains an image information object (fields below) |
+| POST | `/api/login` | JSON `{"token":"admin token"}` | `msg: "Successful"` and a `JWT_TOKEN` cookie. An incorrect token returns HTTP 200 with `msg: "Wrong token"` and no cookie |
+| POST | `/api/upload` | `multipart/form-data` with a `file` field | `msg: "Uploaded Successful"`; `data: {"hash":"SHA-256 of uploaded file", "url":"absolute image URL"}`. AVIF conversion is queued in the background, so the image may not be available immediately |
+| POST | `/api/manage/list` | JSON `{"page":1,"step":20}`; zero or omitted values default to 1 and 20 respectively | `data` is an array of image information objects |
+| POST | `/api/manage/update` | JSON `{"ID":"image UUID","file_name":"new filename"}` | `msg: "Successful"`, no `data`; invalid or unknown IDs return 400 |
+| POST | `/api/manage/delete` | JSON `{"ID":"image UUID"}` | `msg: "Successful"`, no `data`; invalid or unknown IDs return 400. Deletion is permanent |
+
+Image information objects (from `/info` and `/api/manage/list`) include `ID`, `type`, `file_hash`, `file_name`, `width`, `height`, `size` (bytes), `created_at`, and `updated_at` (Unix milliseconds). File paths are not returned. Example:
+
+```json
+{
+  "code": 200,
+  "msg": "Successful",
+  "data": {
+    "ID": "f86fd195-572e-404b-8972-3aac538271c4",
+    "type": "image",
+    "file_hash": "d2b38ef638293bfea60cc8910e3c3fd8d9806f960aedadb5b08da8c13e8d4339",
+    "file_name": "wallhaven-yq8w67.jpg",
+    "width": 7000,
+    "height": 3267,
+    "size": 480913,
+    "created_at": 1790944133293,
+    "updated_at": 1790944139184
+  }
+}
+```
