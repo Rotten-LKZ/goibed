@@ -46,12 +46,12 @@ The service listens on `:8080`. Except for the home page and image files, endpoi
 | GET | `/i/{filename}` | `{filename}` is a UUID followed by `.avif` | Image file; 404 if not found |
 | GET | `/info/{filename}` | Same as above | `data` contains an image information object (fields below) |
 | POST | `/api/login` | JSON `{"token":"admin token"}` | `msg: "Successful"` and a `JWT_TOKEN` cookie. An incorrect token returns HTTP 200 with `msg: "Wrong token"` and no cookie |
-| POST | `/api/upload` | `multipart/form-data` with a `file` field | `msg: "Uploaded Successful"`; `data: {"hash":"SHA-256 of uploaded file", "url":"absolute image URL"}`. AVIF conversion is queued in the background, so the image may not be available immediately |
+| POST | `/api/upload` | `multipart/form-data` with a `file` field | `msg: "Successful"`; `data` is an image information object (fields below), not a hash/URL pair. An existing file with the same SHA-256 hash returns its existing image object; otherwise AVIF conversion is queued in the background, so the image may not be available immediately | 
 | POST | `/api/manage/list` | JSON `{"page":1,"step":20}`; zero or omitted values default to 1 and 20 respectively | `data` is an array of image information objects |
 | POST | `/api/manage/update` | JSON `{"ID":"image UUID","file_name":"new filename"}` | `msg: "Successful"`, no `data`; invalid or unknown IDs return 400 |
 | POST | `/api/manage/delete` | JSON `{"ID":"image UUID"}` | `msg: "Successful"`, no `data`; invalid or unknown IDs return 400. Deletion is permanent |
 
-Image information objects (from `/info` and `/api/manage/list`) include `ID`, `type`, `file_hash`, `file_name`, `width`, `height`, `size` (bytes), `created_at`, and `updated_at` (Unix milliseconds). File paths are not returned. Example:
+Image information objects (from `/info`, `/api/upload`, and `/api/manage/list`) include `ID`, `type`, `file_hash`, `file_name`, `width`, `height`, `size` (bytes), `created_at`, and `updated_at` (Unix milliseconds). File paths are not returned. For a new upload, conversion runs asynchronously, so dimensions and size may initially be zero. Example:
 
 ```json
 {

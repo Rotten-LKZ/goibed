@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"goibed/config"
 	"goibed/database"
 	"goibed/imgpool"
@@ -112,18 +111,10 @@ func UploadImage(c *utils.Context) {
 		}
 	}
 
-	resourceURL, err := utils.GetResourceURL(c.R, fmt.Sprintf("/i/%s.avif", image.ID))
-	if err != nil {
-		c.Error(http.StatusInternalServerError, "Failed to get img resource url")
-		return
-	}
 	c.JSON(http.StatusOK, utils.Response{
 		Code: http.StatusOK,
-		Msg:  "Uploaded Successful",
-		Data: map[string]string{
-			"hash": image.FileHash,
-			"url":  resourceURL,
-		},
+		Msg:  "Successful",
+		Data: image,
 	})
 }
 
