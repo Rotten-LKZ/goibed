@@ -32,6 +32,7 @@ func main() {
 	mux.HandleFunc("POST /api/manage/list", utils.MakeAuthRequiredHandler(handler.GetImagesList))
 	mux.HandleFunc("POST /api/manage/update", utils.MakeAuthRequiredHandler(handler.UpdateImage))
 	mux.HandleFunc("POST /api/manage/delete", utils.MakeAuthRequiredHandler(handler.DelImage))
+	mux.HandleFunc("POST /api/manage/reconvert", utils.MakeAuthRequiredHandler(handler.ReconvertImages))
 
 	slog.Info("HTTP server starting", "addr", ":8080")
 

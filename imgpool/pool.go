@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -20,6 +21,56 @@ type Task struct {
 	ID string
 	// Absolute path because of immediate converting
 	TempPath string
+	done     func()
+}
+
+// SubmitBatchAndWait queues every task and returns after all tasks have been converted.
+// Queue capacity only limits pending work; it does not limit the batch size.
+func SubmitImagesBatchAndWait(images []database.Images) {
+	if len(images) == 0 {
+		return
+	}
+	var wg sync.WaitGroup
+	wg.Add(len(images))
+
+	done := func() {
+		wg.Done()
+	}
+	for _, image := range images {
+		taskQueue <- Task{
+			ID:       image.ID,
+			TempPath: utils.ConvertToAbsolute(image.ImagePath),
+			done:     done,
+		}
+	}
+	wg.Wait()
+}
+
+func worker(workerID int) {
+	for task := range taskQueue {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Error("image conversion panicked",
+						"workerID", workerID,
+						"ID", task.ID,
+						"panic", r,
+					)
+				}
+
+				if task.done != nil {
+					task.done()
+				}
+			}()
+
+			slog.Debug("start converting",
+				"workerID", workerID,
+				"ID", task.ID,
+				"src", task.TempPath,
+			)
+			task.convert()
+		}()
+	}
 }
 
 var taskQueue chan Task
@@ -46,22 +97,21 @@ func Submit(task Task) bool {
 	}
 }
 
-func worker(workerID int) {
-	for task := range taskQueue {
-		logger.Debug("start converting",
-			"workerID", workerID,
-			"ID", task.ID,
-			"src", task.TempPath,
-		)
-		task.convert()
-	}
-}
-
 func runImageMagick(task *Task, arg ...string) (string, error) {
-	cmd := exec.Command(config.Config.MagickPath, arg...)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
 
-	// This requires the program doesn't output anything else to stderr when runs normally.
+	cmd := exec.CommandContext(ctx, config.Config.MagickPath, arg...)
 	outputBytes, err := cmd.CombinedOutput()
+	if ctx.Err() != nil {
+		logger.Error("imagemagick timed out",
+			"ID", task.ID,
+			"tempPath", task.TempPath,
+			"err", ctx.Err(),
+		)
+		return "", ctx.Err()
+	}
+
 	if err != nil {
 		logger.Error("imagemagick doesn't work normally",
 			"err", string(outputBytes),
@@ -105,12 +155,14 @@ func (task *Task) convert() {
 		return
 	}
 
-	// remove original img after one minute
-	time.AfterFunc(1*time.Minute, func() {
-		if err := os.Remove(task.TempPath); err != nil {
-			logger.Error("failed to remove temp img file", "src", task.TempPath)
-		}
-	})
+	if task.TempPath != dstFile {
+		// remove original img after one minute
+		time.AfterFunc(1*time.Minute, func() {
+			if err := os.Remove(task.TempPath); err != nil {
+				logger.Error("failed to remove temp img file", "src", task.TempPath)
+			}
+		})
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()

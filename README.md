@@ -50,6 +50,7 @@ The service listens on `:8080`. Except for the home page and image files, endpoi
 | POST | `/api/manage/list` | JSON `{"page":1,"step":20}`; zero or omitted values default to 1 and 20 respectively | `data` is an array of image information objects |
 | POST | `/api/manage/update` | JSON `{"ID":"image UUID","file_name":"new filename"}` | `msg: "Successful"`, no `data`; invalid or unknown IDs return 400 |
 | POST | `/api/manage/delete` | JSON `{"ID":"image UUID"}` | `msg: "Successful"`, no `data`; invalid or unknown IDs return 400. Deletion is permanent |
+| POST | `/api/manage/reconvert` | JSON `{"ID":"image UUID"}` to reconvert one image, or `{"all":false}` to reconvert only images whose stored path does not end in `.avif`, or `{"all":true}` to reconvert every image; `all` is ignored when `ID` is provided | `msg: "Successful"`, no `data`; a request with `ID` queues that image immediately, while batch reconversion runs in the background. Invalid UUIDs, unknown IDs, or a full conversion queue return 400 or 500 respectively |
 
 Image information objects (from `/info`, `/api/upload`, and `/api/manage/list`) include `ID`, `type`, `file_hash`, `file_name`, `width`, `height`, `size` (bytes), `created_at`, and `updated_at` (Unix milliseconds). File paths are not returned. For a new upload, conversion runs asynchronously, so dimensions and size may initially be zero. Example:
 

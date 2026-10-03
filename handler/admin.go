@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"goibed/config"
 	"goibed/database"
+	"goibed/imgpool"
 	"goibed/utils"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -27,6 +29,14 @@ type UpdateImageRequest struct {
 
 type DelImageRequest struct {
 	ID string `json:"ID"`
+}
+
+type ReconvertImagesRequest struct {
+	// this argument will be ignored if ID is not empty;
+	// if true convert all image,
+	// otherwise only convert images whose image_path doesn't end with .avif
+	All bool   `json:"all"`
+	ID  string `json:"ID"`
 }
 
 func GetImagesList(c *utils.Context) {
@@ -122,6 +132,60 @@ func DelImage(c *utils.Context) {
 	if err := os.Remove(filepath.Join(config.Config.BasePath, image.ImagePath)); err != nil {
 		c.Error(http.StatusInternalServerError, "Failed to delete img file")
 		return
+	}
+
+	c.JSON(http.StatusOK, &utils.Response{
+		Code: http.StatusOK,
+		Msg:  "Successful",
+	})
+}
+
+func ReconvertImages(c *utils.Context) {
+	defer c.R.Body.Close()
+	var t ReconvertImagesRequest
+	err := json.NewDecoder(c.R.Body).Decode(&t)
+	if err != nil {
+		c.Error(http.StatusBadRequest, "Wrong argument")
+		return
+	}
+
+	if t.ID == "" {
+		go func(all bool) {
+			ctx := context.Background()
+			handleImages := func(data []database.Images, _ int) error {
+				imgpool.SubmitImagesBatchAndWait(data)
+				return nil
+			}
+
+			var err error
+			if all {
+				err = gorm.G[database.Images](database.DB).FindInBatches(ctx, 200, handleImages)
+			} else {
+				err = gorm.G[database.Images](database.DB).Where("image_path NOT LIKE ?", "%.avif").FindInBatches(ctx, 200, handleImages)
+			}
+			if err != nil {
+				slog.Error("failed to reconvert images", "err", err)
+			}
+		}(t.All)
+	} else {
+		if _, err := uuid.Parse(t.ID); err != nil {
+			c.Error(http.StatusBadRequest, "Wrong argument")
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		image, err := gorm.G[database.Images](database.DB).Where("ID = ?", t.ID).First(ctx)
+		if err != nil {
+			c.Error(http.StatusBadRequest, "Wrong ID")
+			return
+		}
+		if succ := imgpool.Submit(imgpool.Task{
+			ID:       image.ID,
+			TempPath: utils.ConvertToAbsolute(image.ImagePath),
+		}); !succ {
+			c.Error(http.StatusInternalServerError, "Failed to queue converting request.")
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, &utils.Response{
