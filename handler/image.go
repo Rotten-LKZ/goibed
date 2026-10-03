@@ -154,7 +154,11 @@ func GetImage(c *utils.Context) {
 
 	modified := time.Time(image.UpdatedAt)
 	c.W.Header().Set("ETag", `"`+image.ID+"-"+strconv.FormatInt(modified.UnixNano(), 10)+`"`)
-	c.W.Header().Set("Cache-Control", "no-cache")
+	if strings.HasSuffix(image.ImagePath, ".avif") {
+		c.W.Header().Set("Cache-Control", "public, max-age=31536000")
+	} else {
+		c.W.Header().Set("Cache-Control", "no-cache")
+	}
 	http.ServeContent(c.W, c.R, imageName, modified, file)
 }
 
