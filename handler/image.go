@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 	"uuid"
@@ -144,7 +145,17 @@ func GetImage(c *utils.Context) {
 		c.Error(http.StatusNotFound, "No such image")
 		return
 	}
-	http.ServeFile(c.W, c.R, filepath.Join(config.Config.BasePath, image.ImagePath))
+	file, err := os.Open(filepath.Join(config.Config.BasePath, image.ImagePath))
+	if err != nil {
+		c.Error(http.StatusNotFound, "No such image")
+		return
+	}
+	defer file.Close()
+
+	modified := time.Time(image.UpdatedAt)
+	c.W.Header().Set("ETag", `"`+image.ID+"-"+strconv.FormatInt(modified.UnixNano(), 10)+`"`)
+	c.W.Header().Set("Cache-Control", "no-cache")
+	http.ServeContent(c.W, c.R, imageName, modified, file)
 }
 
 func GetImageInfo(c *utils.Context) {
