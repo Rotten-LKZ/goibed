@@ -18,8 +18,11 @@ import (
 )
 
 type GetImagesRequest struct {
-	Page uint `json:"page"`
-	Step uint `json:"step"`
+	Page      uint   `json:"page"`
+	Step      uint   `json:"step"`
+	Keyword   string `json:"keyword"`
+	StartTime *int64 `json:"start_time"`
+	EndTime   *int64 `json:"end_time"`
 }
 
 type UpdateImageRequest struct {
@@ -47,6 +50,10 @@ func GetImagesList(c *utils.Context) {
 		c.Error(http.StatusBadRequest, "Wrong argument")
 		return
 	}
+	if t.StartTime != nil && t.EndTime != nil && *t.EndTime < *t.StartTime {
+		c.Error(http.StatusBadRequest, "end_time must be greater than or equal to start_time")
+		return
+	}
 
 	if t.Page == 0 {
 		t.Page = 1
@@ -56,7 +63,17 @@ func GetImagesList(c *utils.Context) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	images, err := gorm.G[database.Images](database.DB).
+	var query gorm.ChainInterface[database.Images] = gorm.G[database.Images](database.DB).Order("created_at DESC")
+	if t.Keyword != "" {
+		query = query.Where("file_name LIKE ?", "%"+t.Keyword+"%")
+	}
+	if t.StartTime != nil {
+		query = query.Where("created_at >= ?", time.UnixMilli(*t.StartTime).UTC())
+	}
+	if t.EndTime != nil {
+		query = query.Where("created_at <= ?", time.UnixMilli(*t.EndTime).UTC())
+	}
+	images, err := query.
 		Offset(int((t.Page - 1) * t.Step)).
 		Limit(int(t.Step)).
 		Find(ctx)
