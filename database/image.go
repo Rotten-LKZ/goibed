@@ -16,6 +16,6 @@ type Images struct {
 	Height    uint32  `gorm:"default:0" json:"height"`
 	// Byte
 	Size      uint64      `gorm:"default:0" json:"size"`
-	CreatedAt utils.XTime `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt utils.XTime `gorm:"autoUpdateTime" json:"updated_at"`
+	CreatedAt utils.XTime `gorm:"autoCreateTime:milli" json:"created_at"`
+	UpdatedAt utils.XTime `gorm:"autoUpdateTime:milli" json:"updated_at"`
 }

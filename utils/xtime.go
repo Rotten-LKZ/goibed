@@ -33,16 +33,22 @@ func (t *XTime) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (XTime) GormDataType() string { return "integer" }
+
 func (t XTime) Value() (driver.Value, error) {
 	tm := time.Time(t)
 	if tm.IsZero() {
 		return nil, nil
 	}
-	return tm, nil
+	return tm.UnixMilli(), nil
 }
 
 func (t *XTime) Scan(v any) error {
-	if value, ok := v.(time.Time); ok {
+	switch value := v.(type) {
+	case int64:
+		*t = XTime(time.UnixMilli(value))
+		return nil
+	case time.Time: // Legacy SQLite DATETIME values during migration.
 		*t = XTime(value)
 		return nil
 	}

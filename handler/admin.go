@@ -68,10 +68,10 @@ func GetImagesList(c *utils.Context) {
 		query = query.Where("file_name LIKE ?", "%"+t.Keyword+"%")
 	}
 	if t.StartTime != nil {
-		query = query.Where("created_at >= ?", time.UnixMilli(*t.StartTime).UTC())
+		query = query.Where("created_at >= ?", *t.StartTime)
 	}
 	if t.EndTime != nil {
-		query = query.Where("created_at <= ?", time.UnixMilli(*t.EndTime).UTC())
+		query = query.Where("created_at <= ?", *t.EndTime)
 	}
 	images, err := query.
 		Offset(int((t.Page - 1) * t.Step)).

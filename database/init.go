@@ -26,6 +26,9 @@ func Init() {
 		slog.Error("failed to connect to the database")
 		os.Exit(1)
 	}
-	db.AutoMigrate(&Images{})
+	if err := db.AutoMigrate(&Images{}); err != nil {
+		slog.Error("failed to create images table")
+		os.Exit(1)
+	}
 	DB = db
 }
