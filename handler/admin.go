@@ -65,7 +65,7 @@ func GetImagesList(c *utils.Context) {
 	defer cancel()
 	var query gorm.ChainInterface[database.Images] = gorm.G[database.Images](database.DB).Order("created_at DESC")
 	if t.Keyword != "" {
-		query = query.Where("file_name LIKE ?", "%"+t.Keyword+"%")
+		query = query.Where("filename LIKE ?", "%"+t.Keyword+"%")
 	}
 	if t.StartTime != nil {
 		query = query.Where("created_at >= ?", *t.StartTime)
