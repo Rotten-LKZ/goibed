@@ -11,6 +11,7 @@ import (
 	"goibed/utils"
 	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -24,18 +25,27 @@ import (
 
 func UploadImage(c *utils.Context) {
 	slog.Debug("upload parsing started")
-	if err := c.R.ParseMultipartForm(32 << 20); err != nil {
-		c.Error(http.StatusBadRequest, "Parse form failed or too large file")
+	reader, err := c.R.MultipartReader()
+	if err != nil {
+		c.Error(http.StatusBadRequest, "Parse form failed")
 		return
 	}
-
-	file, header, err := c.R.FormFile("file")
-	if err != nil {
-		c.Error(http.StatusBadRequest, "Cannot found uploaded file")
-		return
+	var file *multipart.Part
+	for {
+		part, err := reader.NextPart()
+		if err != nil {
+			c.Error(http.StatusBadRequest, "Cannot found uploaded file")
+			return
+		}
+		if part.FormName() == "file" && part.FileName() != "" {
+			file = part
+			break
+		}
+		part.Close()
 	}
 	defer file.Close()
-	slog.Debug("upload received", "filename", header.Filename, "size", header.Size)
+	filename := file.FileName()
+	slog.Debug("upload received", "filename", filename)
 
 	uploadDir, err := utils.GetUploadFolder()
 	if err != nil {
@@ -45,7 +55,7 @@ func UploadImage(c *utils.Context) {
 	}
 
 	fileUUID := uuid.New().String()
-	ext := filepath.Ext(header.Filename)
+	ext := filepath.Ext(filename)
 
 	tempFileName := fileUUID + ext
 	tempPath := filepath.Join(uploadDir, tempFileName)
@@ -60,14 +70,15 @@ func UploadImage(c *utils.Context) {
 
 	hash := sha256.New()
 	writer := io.MultiWriter(dst, hash)
-	if _, err := io.Copy(writer, file); err != nil {
+	size, err := io.Copy(writer, file)
+	if err != nil {
 		os.Remove(tempPath)
 		slog.Error(err.Error())
 		c.Error(http.StatusInternalServerError, "Failed to save file")
 		return
 	}
 	fileHash := hex.EncodeToString(hash.Sum(nil))
-	slog.Debug("upload saved and hashed", "ID", fileUUID, "bytes", header.Size, "hash", fileHash)
+	slog.Debug("upload saved and hashed", "ID", fileUUID, "bytes", size, "hash", fileHash)
 
 	tempPathRelative, err := utils.ConvertToRelative(tempPath)
 	if err != nil {
@@ -87,7 +98,7 @@ func UploadImage(c *utils.Context) {
 		image = database.Images{
 			ID:        fileUUID,
 			FileHash:  fileHash,
-			Filename:  header.Filename,
+			Filename:  filename,
 			ImagePath: tempPathRelative,
 		}
 		err = gorm.G[database.Images](database.DB).Create(ctx, &image)
