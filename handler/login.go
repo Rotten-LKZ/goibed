@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"goibed/config"
 	"goibed/utils"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -19,10 +20,12 @@ func Login(c *utils.Context) {
 	var t LoginRequest
 	err := json.NewDecoder(c.R.Body).Decode(&t)
 	if err != nil {
+		slog.Debug("login rejected: invalid request", "error", err)
 		c.Error(http.StatusBadRequest, "Wrong argument")
 		return
 	}
 	if t.Token != config.Config.Token {
+		slog.Debug("login rejected: wrong token")
 		c.JSON(http.StatusOK, utils.Response{
 			Code: http.StatusOK,
 			Msg:  "Wrong token",
@@ -34,6 +37,7 @@ func Login(c *utils.Context) {
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 	}).SignedString([]byte(config.Config.JwtKey))
 	if err != nil {
+		slog.Error("login signing failed", "error", err)
 		c.Error(http.StatusInternalServerError, "Failed to sign JWT token")
 		return
 	}
@@ -45,6 +49,7 @@ func Login(c *utils.Context) {
 		Secure:   true,
 		MaxAge:   60 * 60 * 24 * 30, // 30 days
 	}
+	slog.Debug("login succeeded")
 	http.SetCookie(c.W, cookie)
 	c.JSON(http.StatusOK, utils.Response{
 		Code: http.StatusOK,

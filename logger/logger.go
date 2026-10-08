@@ -8,6 +8,9 @@ import (
 func Init() {
 	var handler slog.Handler
 	options := &slog.HandlerOptions{Level: slog.LevelInfo}
+	if os.Getenv("ENV") == "development" || os.Getenv("LOG_LEVEL") == "debug" {
+		options.Level = slog.LevelDebug
+	}
 	if os.Getenv("ENV") == "development" {
 		handler = slog.NewTextHandler(os.Stdout, options)
 	} else {

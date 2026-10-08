@@ -50,6 +50,7 @@ func GetImagesList(c *utils.Context) {
 		c.Error(http.StatusBadRequest, "Wrong argument")
 		return
 	}
+	slog.Debug("image list requested", "page", t.Page, "step", t.Step, "has_keyword", t.Keyword != "")
 	if t.StartTime != nil && t.EndTime != nil && *t.EndTime < *t.StartTime {
 		c.Error(http.StatusBadRequest, "end_time must be greater than or equal to start_time")
 		return
@@ -81,6 +82,7 @@ func GetImagesList(c *utils.Context) {
 		c.Error(http.StatusInternalServerError, "Failed to get images list")
 		return
 	}
+	slog.Debug("image list loaded", "count", len(images), "page", t.Page)
 	c.JSON(http.StatusOK, &utils.Response{
 		Code: http.StatusOK,
 		Msg:  "Successful",
@@ -101,6 +103,7 @@ func UpdateImage(c *utils.Context) {
 		c.Error(http.StatusBadRequest, "Wrong argument")
 		return
 	}
+	slog.Debug("image update requested", "ID", t.ID)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -113,6 +116,7 @@ func UpdateImage(c *utils.Context) {
 		c.Error(http.StatusBadRequest, "Wrong ID")
 		return
 	}
+	slog.Debug("image updated", "ID", t.ID)
 	c.JSON(http.StatusOK, &utils.Response{
 		Code: http.StatusOK,
 		Msg:  "Successful",
@@ -132,6 +136,7 @@ func DelImage(c *utils.Context) {
 		c.Error(http.StatusBadRequest, "Wrong argument")
 		return
 	}
+	slog.Debug("image deletion requested", "ID", t.ID)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -151,6 +156,7 @@ func DelImage(c *utils.Context) {
 		return
 	}
 
+	slog.Debug("image deleted", "ID", t.ID)
 	c.JSON(http.StatusOK, &utils.Response{
 		Code: http.StatusOK,
 		Msg:  "Successful",
@@ -165,11 +171,14 @@ func ReconvertImages(c *utils.Context) {
 		c.Error(http.StatusBadRequest, "Wrong argument")
 		return
 	}
+	slog.Debug("reconversion requested", "ID", t.ID, "all", t.All)
 
 	if t.ID == "" {
 		go func(all bool) {
+			slog.Debug("batch reconversion started", "all", all)
 			ctx := context.Background()
 			handleImages := func(data []database.Images, _ int) error {
+				slog.Debug("batch reconversion page loaded", "count", len(data))
 				imgpool.SubmitImagesBatchAndWait(data)
 				return nil
 			}
@@ -183,6 +192,7 @@ func ReconvertImages(c *utils.Context) {
 			if err != nil {
 				slog.Error("failed to reconvert images", "err", err)
 			}
+			slog.Debug("batch reconversion finished", "all", all, "error", err)
 		}(t.All)
 	} else {
 		if _, err := uuid.Parse(t.ID); err != nil {
@@ -203,6 +213,7 @@ func ReconvertImages(c *utils.Context) {
 			c.Error(http.StatusInternalServerError, "Failed to queue converting request.")
 			return
 		}
+		slog.Debug("reconversion queued", "ID", image.ID)
 	}
 
 	c.JSON(http.StatusOK, &utils.Response{

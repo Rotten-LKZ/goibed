@@ -34,6 +34,10 @@ vim config.json # whatever editor you use
 go run .
 ```
 
+## Debug logging
+
+Set `LOG_LEVEL=debug` to emit JSON debug logs, or `ENV=development` for human-readable debug logs. By default only info-level and higher logs are emitted. Debug logs cover incoming and completed HTTP requests, authentication outcomes, uploads and deduplication, reconversion batches, queue activity, ImageMagick execution, metadata extraction, database updates, and original-file cleanup. Conversion is asynchronous: the upload response can precede the `conversion completed` log. Logs include image IDs, filenames, hashes, filesystem paths, and client addresses; do not expose debug logs publicly. Tokens, JWTs, and request bodies are not logged.
+
 ## API Reference
 
 The service listens on `:8080`. Except for the home page and image files, endpoints return JSON: `{"code": HTTP status code, "msg": "message", "data": ...}`. The `data` field is omitted when absent. Errors use the same format, typically with HTTP status 400, 401, 404, or 500.

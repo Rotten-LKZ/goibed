@@ -23,6 +23,7 @@ import (
 )
 
 func UploadImage(c *utils.Context) {
+	slog.Debug("upload parsing started")
 	if err := c.R.ParseMultipartForm(32 << 20); err != nil {
 		c.Error(http.StatusBadRequest, "Parse form failed or too large file")
 		return
@@ -34,6 +35,7 @@ func UploadImage(c *utils.Context) {
 		return
 	}
 	defer file.Close()
+	slog.Debug("upload received", "filename", header.Filename, "size", header.Size)
 
 	uploadDir, err := utils.GetUploadFolder()
 	if err != nil {
@@ -65,6 +67,7 @@ func UploadImage(c *utils.Context) {
 		return
 	}
 	fileHash := hex.EncodeToString(hash.Sum(nil))
+	slog.Debug("upload saved and hashed", "ID", fileUUID, "bytes", header.Size, "hash", fileHash)
 
 	tempPathRelative, err := utils.ConvertToRelative(tempPath)
 	if err != nil {
@@ -77,6 +80,7 @@ func UploadImage(c *utils.Context) {
 	var image database.Images
 	image, err = gorm.G[database.Images](database.DB).Where("file_hash = ?", fileHash).First(ctx)
 
+	slog.Debug("upload duplicate lookup completed", "ID", fileUUID, "error", err)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		ctx, cancel = context.WithTimeout(context.Background(), time.Second*3)
 		defer cancel()
@@ -93,6 +97,7 @@ func UploadImage(c *utils.Context) {
 			c.Error(http.StatusInternalServerError, "Failed to write to db")
 			return
 		}
+		slog.Debug("upload recorded", "ID", fileUUID)
 		if succ := imgpool.Submit(imgpool.Task{
 			ID:       fileUUID,
 			TempPath: tempPath,
@@ -100,6 +105,7 @@ func UploadImage(c *utils.Context) {
 			c.Error(http.StatusInternalServerError, "Failed to queue converting request.")
 			return
 		}
+		slog.Debug("upload conversion queued", "ID", fileUUID)
 	} else if err != nil {
 		c.Error(http.StatusInternalServerError, "Failed to convert to relative path")
 		return
@@ -110,8 +116,10 @@ func UploadImage(c *utils.Context) {
 			c.Error(http.StatusInternalServerError, "Failed to remove temp img file")
 			return
 		}
+		slog.Debug("upload deduplicated", "ID", image.ID)
 	}
 
+	slog.Debug("upload response ready", "ID", image.ID)
 	c.JSON(http.StatusOK, utils.Response{
 		Code: http.StatusOK,
 		Msg:  "Successful",
@@ -134,6 +142,7 @@ func getUUIDFromFilename(filename string) (string, bool) {
 func GetImage(c *utils.Context) {
 	imageName := c.R.PathValue("filename")
 	ID, isValid := getUUIDFromFilename(imageName)
+	slog.Debug("image requested", "filename", imageName)
 	if !isValid {
 		c.Error(http.StatusNotFound, "No such image")
 		return
@@ -160,11 +169,13 @@ func GetImage(c *utils.Context) {
 		c.W.Header().Set("Cache-Control", "no-cache")
 	}
 	http.ServeContent(c.W, c.R, imageName, modified, file)
+	slog.Debug("image served", "ID", ID, "path", image.ImagePath)
 }
 
 func GetImageInfo(c *utils.Context) {
 	imageName := c.R.PathValue("filename")
 	ID, isValid := getUUIDFromFilename(imageName)
+	slog.Debug("image info requested", "filename", imageName)
 	if !isValid {
 		c.Error(http.StatusNotFound, "No such image")
 		return
@@ -176,6 +187,7 @@ func GetImageInfo(c *utils.Context) {
 		c.Error(http.StatusNotFound, "No such image")
 		return
 	}
+	slog.Debug("image info found", "ID", ID)
 	c.JSON(http.StatusOK, &utils.Response{
 		Code: http.StatusOK,
 		Msg:  "Successful",

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"goibed/config"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -13,6 +14,7 @@ func MakeAuthRequiredHandler(fn func(c *Context)) http.HandlerFunc {
 		ctx := &Context{W: w, R: r}
 		tokenString, err := r.Cookie("JWT_TOKEN")
 		if err != nil {
+			slog.Debug("authentication rejected: missing cookie", "path", r.URL.Path)
 			ctx.Error(http.StatusUnauthorized, "Cookie JWT_TOKEN required")
 			return
 		}
@@ -21,6 +23,7 @@ func MakeAuthRequiredHandler(fn func(c *Context)) http.HandlerFunc {
 			return []byte(config.Config.JwtKey), nil
 		})
 		if err != nil || !token.Valid {
+			slog.Debug("authentication rejected: invalid token", "path", r.URL.Path, "error", err)
 			http.SetCookie(w, &http.Cookie{
 				Name:     "JWT_TOKEN",
 				Value:    "",
@@ -34,6 +37,7 @@ func MakeAuthRequiredHandler(fn func(c *Context)) http.HandlerFunc {
 			ctx.Error(http.StatusUnauthorized, "Invalid JWT")
 			return
 		}
+		slog.Debug("authentication accepted", "path", r.URL.Path)
 		fn(ctx)
 	}
 }

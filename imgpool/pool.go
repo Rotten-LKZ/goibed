@@ -27,6 +27,7 @@ type Task struct {
 // SubmitBatchAndWait queues every task and returns after all tasks have been converted.
 // Queue capacity only limits pending work; it does not limit the batch size.
 func SubmitImagesBatchAndWait(images []database.Images) {
+	logger.Debug("batch conversion requested", "count", len(images))
 	if len(images) == 0 {
 		return
 	}
@@ -37,6 +38,7 @@ func SubmitImagesBatchAndWait(images []database.Images) {
 		wg.Done()
 	}
 	for _, image := range images {
+		logger.Debug("queueing batch image", "ID", image.ID, "queue_length", len(taskQueue))
 		taskQueue <- Task{
 			ID:       image.ID,
 			TempPath: utils.ConvertToAbsolute(image.ImagePath),
@@ -44,10 +46,12 @@ func SubmitImagesBatchAndWait(images []database.Images) {
 		}
 	}
 	wg.Wait()
+	logger.Debug("batch conversion completed", "count", len(images))
 }
 
 func worker(workerID int) {
 	for task := range taskQueue {
+		started := time.Now()
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -58,16 +62,12 @@ func worker(workerID int) {
 					)
 				}
 
+				logger.Debug("conversion worker finished", "ID", task.ID, "workerID", workerID, "duration", time.Since(started))
 				if task.done != nil {
 					task.done()
 				}
 			}()
 
-			slog.Debug("start converting",
-				"workerID", workerID,
-				"ID", task.ID,
-				"src", task.TempPath,
-			)
 			task.convert()
 		}()
 	}
@@ -76,12 +76,10 @@ func worker(workerID int) {
 var taskQueue chan Task
 var logger *slog.Logger
 
-func init() {
-	logger = slog.With("converter")
-}
-
 func InitPool() {
+	logger = slog.With("component", "converter")
 	taskQueue = make(chan Task, config.Config.MaxQueueLength)
+	logger.Debug("conversion pool initialized", "workers", config.Config.MaxImgPool, "queue_capacity", config.Config.MaxQueueLength)
 
 	for i := range config.Config.MaxImgPool {
 		go worker(i)
@@ -91,8 +89,10 @@ func InitPool() {
 func Submit(task Task) bool {
 	select {
 	case taskQueue <- task:
+		logger.Debug("conversion queued", "ID", task.ID, "queue_length", len(taskQueue))
 		return true
 	default:
+		logger.Debug("conversion queue full", "ID", task.ID, "queue_length", len(taskQueue))
 		return false
 	}
 }
@@ -102,6 +102,8 @@ func runImageMagick(task *Task, arg ...string) (string, error) {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, config.Config.MagickPath, arg...)
+	started := time.Now()
+	logger.Debug("imagemagick started", "ID", task.ID, "args", arg)
 	outputBytes, err := cmd.CombinedOutput()
 	if ctx.Err() != nil {
 		logger.Error("imagemagick timed out",
@@ -121,15 +123,18 @@ func runImageMagick(task *Task, arg ...string) (string, error) {
 		return "", err
 	}
 
+	logger.Debug("imagemagick completed", "ID", task.ID, "duration", time.Since(started))
 	return string(outputBytes), nil
 }
 
 func (task *Task) convert() {
 	dstFile := strings.TrimSuffix(task.TempPath, filepath.Ext(task.TempPath)) + ".avif"
+	logger.Debug("conversion started", "ID", task.ID, "src", task.TempPath, "dst", dstFile)
 
 	if _, err := runImageMagick(task, task.TempPath, dstFile); err != nil {
 		return
 	}
+	logger.Debug("image encoded", "ID", task.ID, "dst", dstFile)
 	imageInfo, err := runImageMagick(task, "identify", "-precision", "16", "-format", "%w %h %b", "-ping", dstFile)
 	if err != nil {
 		return
@@ -154,14 +159,18 @@ func (task *Task) convert() {
 		logger.Error("ImageMagick parse error", "dist", dstFile)
 		return
 	}
+	logger.Debug("image metadata identified", "ID", task.ID, "width", width, "height", height, "size", size)
 
 	if task.TempPath != dstFile {
 		// remove original img after one minute
 		time.AfterFunc(1*time.Minute, func() {
 			if err := os.Remove(task.TempPath); err != nil {
 				logger.Error("failed to remove temp img file", "src", task.TempPath)
+			} else {
+				logger.Debug("original removed", "ID", task.ID, "src", task.TempPath)
 			}
 		})
+		logger.Debug("original removal scheduled", "ID", task.ID, "src", task.TempPath)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
@@ -184,4 +193,5 @@ func (task *Task) convert() {
 		)
 		return
 	}
+	logger.Debug("conversion completed", "ID", task.ID, "dst", dstFileRelative, "width", width, "height", height, "size", size)
 }

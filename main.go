@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"goibed/config"
 	"goibed/database"
@@ -36,7 +37,12 @@ func main() {
 
 	slog.Info("HTTP server starting", "addr", ":8080")
 
-	if err := http.ListenAndServe(":8080", mux); err != nil {
+	if err := http.ListenAndServe(":8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		slog.Debug("request received", "method", r.Method, "path", r.URL.Path, "remote", r.RemoteAddr)
+		mux.ServeHTTP(w, r)
+		slog.Debug("request completed", "method", r.Method, "path", r.URL.Path, "duration", time.Since(start))
+	})); err != nil {
 		slog.Error("HTTP server stopped", "error", err)
 	}
 }
