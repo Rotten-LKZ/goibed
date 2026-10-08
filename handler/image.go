@@ -184,6 +184,7 @@ func GetImage(c *utils.Context) {
 }
 
 func GetImageInfo(c *utils.Context) {
+	c.W.Header().Set("Access-Control-Allow-Origin", "*")
 	imageName := c.R.PathValue("filename")
 	ID, isValid := getUUIDFromFilename(imageName)
 	slog.Debug("image info requested", "filename", imageName)
