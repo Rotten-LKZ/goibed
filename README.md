@@ -58,6 +58,8 @@ The service listens on `:8080`. Except for the home page and image files, endpoi
 | POST | `/api/manage/delete` | JSON `{"ID":"image UUID"}` | `msg: "Successful"`, no `data`; invalid or unknown IDs return 400. Deletion is permanent |
 | POST | `/api/manage/reconvert` | JSON `{"ID":"image UUID"}` to reconvert one image, or `{"all":false}` to reconvert only images whose stored path does not end in `.avif`, or `{"all":true}` to reconvert every image; `all` is ignored when `ID` is provided | `msg: "Successful"`, no `data`; a request with `ID` queues that image immediately, while batch reconversion runs in the background. Invalid UUIDs, unknown IDs, or a full conversion queue return 400 or 500 respectively |
 
+The `file` field is streamed to disk and limited to 32 MiB (33,554,432 bytes). Larger files return HTTP 413; this limit applies to the file, not the multipart envelope.
+
 `start_time` and `end_time` are signed Unix milliseconds (instants relative to 1970-01-01 00:00:00 UTC), like the response timestamps. Omit a bound or set it to `null` to leave that side unbounded; `0` is a valid bound, and negative values represent times before the Unix epoch. Convert local calendar dates to the intended timezone's instants before sending milliseconds.
 
 SQLite stores `created_at` and `updated_at` as UTC Unix milliseconds (INTEGER), so numeric comparisons and sorting follow chronological order.

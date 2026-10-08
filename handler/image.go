@@ -23,6 +23,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const maxUploadSize = 32 << 20
+
 func UploadImage(c *utils.Context) {
 	slog.Debug("upload parsing started")
 	reader, err := c.R.MultipartReader()
@@ -70,8 +72,13 @@ func UploadImage(c *utils.Context) {
 
 	hash := sha256.New()
 	writer := io.MultiWriter(dst, hash)
-	size, err := io.Copy(writer, file)
-	if err != nil {
+	size, err := io.CopyN(writer, file, maxUploadSize+1)
+	if size > maxUploadSize {
+		os.Remove(tempPath)
+		c.Error(http.StatusRequestEntityTooLarge, "File exceeds 32 MiB limit")
+		return
+	}
+	if err != nil && err != io.EOF {
 		os.Remove(tempPath)
 		slog.Error(err.Error())
 		c.Error(http.StatusInternalServerError, "Failed to save file")
