@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"slices"
 	"time"
 
 	"goibed/config"
@@ -14,11 +16,18 @@ import (
 	"goibed/utils"
 )
 
+var version = "dev"
+
 func helloHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello")
 }
 
 func main() {
+	if slices.Contains(os.Args[1:], "--version") {
+		fmt.Println(version)
+		return
+	}
+
 	config.Init()
 	database.Init()
 	logger.Init()

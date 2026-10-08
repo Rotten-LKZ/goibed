@@ -37,7 +37,7 @@ jobs:
         env:
           CGO_ENABLED: '1'
           GOARCH: ${{ matrix.arch }}
-        run: go build -o ${{ matrix.binary }} .
+        run: go build -ldflags "-X main.version=${{ github.ref_name }}" -o ${{ matrix.binary }} .
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.platform }}

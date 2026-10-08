@@ -22,6 +22,8 @@ Download the binary for your platform from [GitHub Releases](https://github.com/
 ./goibed --config /path/to/your/config.json
 ```
 
+`./goibed --version` prints the release tag and exits without loading configuration or starting the service. Locally built binaries print `dev` unless built with `-ldflags "-X main.version=<version>"`.
+
 ## Run with source code
 
 Clone the repository, create a configuration file, and run the service:
