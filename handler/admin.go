@@ -2,7 +2,7 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"goibed/config"
 	"goibed/database"
 	"goibed/imgpool"
@@ -45,7 +45,7 @@ type ReconvertImagesRequest struct {
 func GetImagesList(c *utils.Context) {
 	defer c.R.Body.Close()
 	var t GetImagesRequest
-	err := json.NewDecoder(c.R.Body).Decode(&t)
+	err := json.UnmarshalRead(c.R.Body, &t)
 	if err != nil {
 		c.Error(http.StatusBadRequest, "Wrong argument")
 		return
@@ -93,7 +93,7 @@ func GetImagesList(c *utils.Context) {
 func UpdateImage(c *utils.Context) {
 	defer c.R.Body.Close()
 	var t UpdateImageRequest
-	err := json.NewDecoder(c.R.Body).Decode(&t)
+	err := json.UnmarshalRead(c.R.Body, &t)
 	if err != nil {
 		c.Error(http.StatusBadRequest, "Wrong argument")
 		return
@@ -126,7 +126,7 @@ func UpdateImage(c *utils.Context) {
 func DelImage(c *utils.Context) {
 	defer c.R.Body.Close()
 	var t DelImageRequest
-	err := json.NewDecoder(c.R.Body).Decode(&t)
+	err := json.UnmarshalRead(c.R.Body, &t)
 	if err != nil {
 		c.Error(http.StatusBadRequest, "Wrong argument")
 		return
@@ -166,7 +166,7 @@ func DelImage(c *utils.Context) {
 func ReconvertImages(c *utils.Context) {
 	defer c.R.Body.Close()
 	var t ReconvertImagesRequest
-	err := json.NewDecoder(c.R.Body).Decode(&t)
+	err := json.UnmarshalRead(c.R.Body, &t)
 	if err != nil {
 		c.Error(http.StatusBadRequest, "Wrong argument")
 		return

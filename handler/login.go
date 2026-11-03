@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"goibed/config"
 	"goibed/utils"
 	"log/slog"
@@ -18,7 +18,7 @@ type LoginRequest struct {
 func Login(c *utils.Context) {
 	defer c.R.Body.Close()
 	var t LoginRequest
-	err := json.NewDecoder(c.R.Body).Decode(&t)
+	err := json.UnmarshalRead(c.R.Body, &t)
 	if err != nil {
 		slog.Debug("login rejected: invalid request", "error", err)
 		c.Error(http.StatusBadRequest, "Wrong argument")

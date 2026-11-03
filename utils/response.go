@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"net/http"
 )
 
@@ -19,7 +19,7 @@ type Response struct {
 func (c *Context) JSON(code int, data any) {
 	c.W.Header().Set("Content-Type", "application/json; charset=utf-8")
 	c.W.WriteHeader(code)
-	json.NewEncoder(c.W).Encode(data)
+	_ = json.MarshalWrite(c.W, data)
 }
 
 func (c *Context) Error(code int, msg string) {
